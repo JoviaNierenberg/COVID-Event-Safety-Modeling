@@ -1,7 +1,7 @@
-import dash
-import dash_core_components as dcc
+import dash #combo of flask, react.js, plotly.js
+import dash_core_components as dcc #  create interactive components
 import dash_bootstrap_components as dbc
-import dash_html_components as html
+import dash_html_components as html #access HTML tags
 from dash.dependencies import Input, Output, State
 import plotly.express as px
 import plotly.graph_objects as go
@@ -10,22 +10,13 @@ cv.options.set(dpi=300, show=False, close=True, verbose=0)
 import pandas as pd
 import numpy as np
 
-data = pd.read_csv("avocado.csv")
-data = data.query("type == 'conventional' and region == 'Albany'")
-data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
-data.sort_values("Date", inplace=True)
 
+
+# 1. initialize your app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = "COVID-19 Event Simulator"
 
-# loan_min, loan_max = 10000, 20000
-# Make some calculations based on value range retrieved
-# loan_marks = loan_max // 4
-# loan_min //= loan_marks
-# inc_min, inc_max = 10000, 20000
-# app_types = ["Individual", "Joints"]
-# purposes =  ["Individual", "Jointss"]
-# ownerships =  ["Individual", "Josints", "amazing", "testing", "many topions", "wow  "]
+
 state_names = ["Alaska", "Alabama", "Arkansas", "American Samoa", "Arizona", "California", "Colorado", "Connecticut", "District ", "of Columbia", "Delaware", "Florida", "Georgia", "Guam", "Hawaii", "Iowa", "Idaho", "Illinois", "Indiana", "Kansas", "Kentucky", "Louisiana", "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota", "Missouri", "Mississippi", "Montana", "North Carolina", "North Dakota", "Nebraska", "New Hampshire", "New Jersey", "New Mexico", "Nevada", "New York", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Virginia", "Virgin Islands", "Vermont", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
 event_settings = ["Indoor", "Outdoor", "Mixed"]
 # extra functions
@@ -124,7 +115,7 @@ def get_range(connection, db, col):
 
 # --------------
 
-# Build component parts
+# 2. Build component parts
 avp_graph = dcc.Graph(id="avp-graph", style={"height": "500px"})
 loc_graph = dcc.Graph(id="loc_graph", style={"height": "500px"})
 div_alert = dbc.Spinner(html.Div(id="alert-msg"))
@@ -162,7 +153,7 @@ controls = [
 # ]
 
 
-# Define Layout
+# 3. Define Layout
 app.layout = dbc.Container(
     fluid=True,
     children=[
@@ -199,6 +190,7 @@ app.layout = dbc.Container(
     style={"margin": "auto"},
 )
 
+# 4. Define callbacks 
 @app.callback(
     # [
         # Output("alert-msg", "children"),
