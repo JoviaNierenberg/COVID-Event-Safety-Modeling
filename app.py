@@ -63,12 +63,12 @@ def SwitchInput():
             dbc.Checklist(
                 options=[
                     {"label": "Mask wearing", "value": 1},
-                    {"label": "Event capacity reduction", "value": 2},
-                    {"label": "Improved ventilation indoors", "value": 3},
+                    # {"label": "Event capacity reduction", "value": 2},
+                    # {"label": "Improved ventilation indoors", "value": 3},
                     # {"label": "Disabled Option", "value": 3, "disabled": True},
                 ],
-                value=[1],
-                id="switches-input",
+                value=[],
+                id="npis",
                 switch=True,
             ),
         ]
@@ -159,14 +159,8 @@ def vaccine_intervention(percent_vax,efficacy_inf, efficacy_symp, pars, passport
 # ------------- Build component parts -------------
 # avp_graph = dcc.Graph(id="avp_graph", style={"height": "500px"})
 # loc_graph = dcc.Graph(id="loc_graph", style={"height": "500px"})
-div_alert = dbc.Spinner(html.Div(id="alert-msg"))
-# query_card = dbc.Card(
-#     [
-#         html.H4("Auto-generated SnowSQL Query", className="card-title"),
-#         dcc.Markdown(id="sql-query"),
-#     ],
-#     body=True,
-# )
+# div_alert = dbc.Spinner(html.Div(id="alert-msg"))
+
 
 controls = [
     OptionMenu(id="location", label="Select U.S. State", values=state_names),
@@ -185,7 +179,7 @@ controls = [
     OptionMenu(id="event_setting", label="Event Setting", values=event_settings),
     OptionMenu(id="test_setting", label="Testing Options", values=testing_options),
     OptionMenu(id="vax_setting", label="Vaccination Requirements", values=vax_options),
-    # SwitchInput(),
+    SwitchInput(),
     dbc.Button("Run Simulation", color="primary", id="button-train", n_clicks=0),
     # dbc.Spinner(children=[avp_graph]),
     # dbc.Spinner(html.Div(id="loading-output")),
@@ -215,7 +209,7 @@ app.layout = dbc.Container(
         )),
         dbc.Row(
             [
-                dbc.Col([dbc.Card(controls, body=True), div_alert], md=3),
+                dbc.Col([dbc.Card(controls, body=True)], md=3),
                 dbc.Col(dbc.Spinner(children=[dcc.Graph(id="avp_graph", style={"height": "500px"})], size="sm", color="primary")),
                 dbc.Col(dbc.Spinner(children=[dcc.Graph(id="loc_graph", style={"height": "500px"})], size="sm", color="primary")),
                 # dbc.Col([avp_graph]),
@@ -253,10 +247,11 @@ app.layout = dbc.Container(
         State("num_people", "value"),
         State("event_setting", "value"),
         State("test_setting", "value"),
-        State("vax_setting", "value")
+        State("vax_setting", "value"),
+        State("npis", "value"),
     ],
 )
-def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_setting, vax_setting):
+def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_setting, vax_setting, npi):
 # def run_sim(event_duration, num_people, location, event_environment=None, mask_wearing=False, test_type=None, use_vaccines=True, mandatory_vax=False):
     if n_clicks < 1: 
         avp_fig = go.Figure()
@@ -270,6 +265,8 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     test_type= None if test_setting == "No Testing" else test_setting
     use_vaccines=False if vax_setting == "No Vaccination" else True
     mandatory_vax=True if vax_setting == "Mandatory Vaccination" else False
+    mask_wearing = True if 1 in npi else False
+    print(npi)
     # print("test_setting: ", test_setting)
     # print("vax_setting: ", vax_setting)
     # print("event_environment:", event_environment, 
@@ -393,7 +390,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         )
     ])
     #  https://stackoverflow.com/questions/55704058/plotly-how-to-set-the-range-of-the-y-axis
-    avp_fig.update_layout(yaxis_range=[-0.5,max(max(df['new_infections_high'].tolist()), 8)+2],
+    avp_fig.update_layout(yaxis_range=[-0.1,max(max(df['new_infections_high'].tolist()), 8)+2],
     yaxis_title='Cases',
     title_text='New Daily Infections', title_x=0.5, title_y=0.875,
     hovermode="x",
