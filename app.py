@@ -9,6 +9,7 @@ import covasim as cv
 cv.options.set(dpi=300, show=False, close=True, verbose=0)
 import pandas as pd
 import numpy as np
+from helper_stats import *
 
 
 
@@ -18,7 +19,7 @@ app.title = "COVID-19 Event Simulator"
 
 
 # ------------- app input functions and values -------------
-state_names = ["USA","Alaska", "Alabama", "Arkansas", "American Samoa", "Arizona", "California", "Colorado", "Connecticut", "District of Columbia", "Delaware", "Florida", "Georgia", "Guam", "Hawaii", "Iowa", "Idaho", "Illinois", "Indiana", "Kansas", "Kentucky", "Louisiana", "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota", "Missouri", "Mississippi", "Montana", "North Carolina", "North Dakota", "Nebraska", "New Hampshire", "New Jersey", "New Mexico", "Nevada", "New York", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Virginia", "Virgin Islands", "Vermont", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
+state_names = ["USA","Alaska", "Alabama", "Arkansas", "Arizona", "California", "Colorado", "Connecticut", "District of Columbia", "Delaware", "Florida", "Georgia", "Hawaii", "Iowa", "Idaho", "Illinois", "Indiana", "Kansas", "Kentucky", "Louisiana", "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota", "Missouri", "Mississippi", "Montana", "North Carolina", "North Dakota", "Nebraska", "New Hampshire", "New Jersey", "New Mexico", "Nevada", "New York", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Virginia", "Vermont", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
 event_settings = ["Indoor", "Outdoor", "Mixed"]
 vax_options = [ "Default (assumes regional prevalence)", "Mandatory Vaccination", "No Vaccination"]
 testing_options = ["No Testing", "Entry antigen", "Daily antigen", "PCR 2-day", "PCR 4-day"]
@@ -112,16 +113,19 @@ sens: Sensitivity of test used
 
 """ 
 
-def test_intervention(test_del, days_testing, rapid, window, pars, sens=.984, subtarg=None):
+
+def test_intervention(test_del, days_testing, rapid, window, pars, prevalence, sens=.984, subtarg=None):
     if (rapid):
         pars['pop_infected'] -= sens * pars['pop_infected']
     else:
-       # Newly infected are those infected after test (assume even distribution of test date from 1 to 'window' days ago)
-       # Assume 12 days infectious, all tests within 4.6 day period from exposed->infectious (max window 4)
-       # These people will test negative even with a perfect test, because they were exposed after testing negative
-        prevalence = 0.014 # TO BE UPDATED W/ STATE LEVEL DATA
-        num_preinfectious = prevalence * pars['pop_size'] * sum([x*(1/(12*window)) for x in range(1,window+1)])
-
+        num_preinfectious = sum([((1/window) * pars['pop_size'] * prevalence * x) for x in range(1,window+1)])
+        
+        # old preinfections
+        # Newly infected are those infected after test (assume even distribution of test date from 1 to 'window' days ago)
+        # Assume 12 days infectious, all tests within 4.6 day period from exposed->infectious (max window 4)
+        # These people will test negative even with a perfect test, because they were exposed after testing negative
+        # num_preinfectious = prevalence * pars['pop_size'] * sum([x*(1/(12*window)) for x in range(1,window+1)])
+        
         # Finally, remove population that is detected by the reported tests
         pars['pop_infected'] += num_preinfectious - sens * pars['pop_infected']
         
@@ -154,6 +158,25 @@ def vaccine_intervention(percent_vax,efficacy_inf, efficacy_symp, pars, passport
     if passport:
         percent_vax = 1
     return cv.simple_vaccine(days=0, prob=percent_vax, rel_sus=efficacy_inf, rel_symp=efficacy_symp), pars
+
+# ------------- Import state & us level data: new cases, total cases, percent vaccinated -------------
+# State daily data  
+can_state = pd.read_csv("states.csv")
+
+# USA timeseries data 
+can_usa_timeseries = pd.read_csv("UStimeseries.csv")
+can_usa_timeseries.dropna(subset = ['actuals.cases'], inplace=True)
+can_usa_timeseries.dropna(subset = ['metrics.vaccinationsCompletedRatio'], inplace=True)
+can_usa_timeseries['date']=pd.to_datetime(can_usa_timeseries.date)
+can_usa_timeseries.sort_values(by='date', inplace=True)
+
+# State timeseries data  
+can_state_timeseries = pd.read_csv("statestimeseries.csv")
+can_state_timeseries.dropna(subset = ['actuals.cases'], inplace=True)
+can_state_timeseries['date']=pd.to_datetime(can_state_timeseries.date)
+can_state_timeseries.sort_values(by='date', inplace=True)
+
+
 
 
 # ------------- Build component parts -------------
@@ -219,6 +242,12 @@ app.layout = dbc.Container(
         ),
         # dbc.Row(
         #     [
+        #         dbc.Col(dbc.Button("Save Simulation", color="primary", id="button-save", n_clicks=0), width=4),
+        #     ],
+        #     justify="center",
+        # ),
+        # dbc.Row(
+        #     [
         #         dbc.Col(html.Div(""), md=3),
         #         dbc.Col([loc_graph], md=5),
         #         # dbc.Col([avp_graph, query_card], md=4),
@@ -259,41 +288,65 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     # ----- basic event characteristics ----- 
     event_duration = event_duration if event_duration != None else 1 #temp fix for misfiring nclicks
     num_people = num_people if num_people != None else 1
-    location = "USA-" + location if location != "USA" else "USA"
+    covsim_location = "USA-" + location if location != "USA" else "USA"
     event_environment= None if event_setting == "Mixed" else event_setting
-    mask_wearing=False
     test_type= None if test_setting == "No Testing" else test_setting
     use_vaccines=False if vax_setting == "No Vaccination" else True
     mandatory_vax=True if vax_setting == "Mandatory Vaccination" else False
     mask_wearing = True if 1 in npi else False
-    print(npi)
+    # print(npi)
     # print("test_setting: ", test_setting)
     # print("vax_setting: ", vax_setting)
     # print("event_environment:", event_environment, 
     # "test_type:", test_type, "use_vaccines:", use_vaccines, "mandatory_vax:", mandatory_vax)
 
-    # ----- Point estimates ----- 
+    # ---------- Point estimates ---------- 
     indoor_factor = 9.35
     outdoor_factor = .11 
     mask_factor = .56
     ventilation_factor = .69
     capacity_factor = .5
     start_day = '2021-07-01' # default start date
-    prevalence = 0.014 # TO BE UPDATED W/ STATE LEVEL DATA
     variant_transmissibility = 1.67 
-    susceptibility_proportion = 0.747 # TO BE UPDATED W/ STATE LEVEL DATA
     
-    # ----- define parameters in covasim format ----- 
+    # location-specific & other characteristics
+    under_rep_factor = 4.3
+    location_pop = population_dict[location]
+    
+    state_abv = us_state_abbrev[location]
+    if state_abv == 'USA':
+        location_total_inf = can_usa_timeseries.iloc[-1]['actuals.cases']
+        location_cases_d10 = sum(can_usa_timeseries.iloc[range(-10,0,1)]['actuals.newCases'].values)
+        perc_vax = can_usa_timeseries.iloc[-1]['metrics.vaccinationsCompletedRatio']
+    else:
+        location_total_inf = can_state[can_state['state']==state_abv]['actuals.cases'].values[0]  
+        location_cases_d10 = sum(can_state_timeseries[can_state_timeseries['state']==state_abv].iloc[range(-10,0,1)]['actuals.newCases'].values)
+        perc_vax = can_state[can_state['state']==state_abv]['metrics.vaccinationsCompletedRatio'].values[0]
+        
+    print("location: {}, location abv: {}".format(location, state_abv))
+    print("location_total_inf: {}, location_cases_d10: {}, perc_vax: {}".format(location_total_inf, location_cases_d10, perc_vax))
+    
+    # calculate location specific prevelance
+    prevalence = (location_cases_d10*under_rep_factor)/location_pop # 0.014 - old number
+    
+    # calculate location specific susceptibility proportion
+    susceptibility_proportion = 1-((location_total_inf * under_rep_factor)/location_pop) #0.747 - old number
+    
+    # vaccination levels:
+    v_efficacy_inf = .1 # Vax efficacy against infection (e.g .2 == 80% efficacy)
+    v_efficacy_symp = .06 # Vax efficacy against symptoms
+    
+    # ---------- Define parameters in covasim format ---------- 
     pars = dict(
         pop_type = 'hybrid', # Use a more realistic population model
         pop_size = num_people,
         pop_infected = num_people*prevalence,
         start_day = start_day,
         n_days = event_duration,
-        location = location # Case insensitive
+        location = covsim_location # Case insensitive
     )
     
-    # -----  model changes (variants, environment, NPIs, testing, vaccines) to beta on day 0 ----- 
+    # ----------  model changes (variants, environment, NPIs, testing, vaccines) to beta on day 0 ---------- 
     all_interventions = []
     
     # variant transmissibility
@@ -320,6 +373,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     -   subtarg: Indices of population to subtarget
     -   sens: Sensitivity of test used
     """
+ 
     testing_scenarios = {
         # format = [test_del, days_testing, rapid, window]
         "Entry antigen":[0,0,True,0],
@@ -334,22 +388,20 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
                                            days_testing=testing_scenarios[test_type][1], 
                                            rapid=testing_scenarios[test_type][2], 
                                            window=testing_scenarios[test_type][3], 
-                                           pars=pars, 
+                                           pars=pars,
+                                           prevalence=prevalence,
                                            sens=sens)
         all_interventions.append(test_int)
         
     
     # vaccinations - assumes state level vax numbers (default), unless otherwise specified (either mandatory vax, or no vax)
-    perc_vax = .481 # TO BE UPDATED W/ STATE LEVEL DATA
     passport = mandatory_vax # True if 100% of attendees must be vaccinated
-    v_efficacy_inf = .1 # Vax efficacy against infection (e.g .2 == 80% efficacy)
-    v_efficacy_symp = .06 # Vax efficacy against symptoms
     if use_vaccines:
         vc, pars = vaccine_intervention(perc_vax, v_efficacy_inf, v_efficacy_symp, pars, passport)
         all_interventions.append(vc)
 
     
-    # ----- run simulation -----
+    # ---------- run simulation ----------
     # print("Running SIMULATION")
     sim = cv.Sim(pars, interventions = all_interventions)
     msim = cv.MultiSim(sim)
@@ -358,7 +410,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     # msim.plot(to_plot=['new_infections', 'cum_infections'])
     sim_json = msim.to_json()
 
-    # ----- plotting -----
+    # ---------- plotting ----------
     df = pd.DataFrame(list(zip(sim_json['results']['t'], 
                             sim_json['results']['new_infections'],
                             sim_json['results']['new_infections_low'],
@@ -370,6 +422,10 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
                             sim_json['results']['cum_infections_low'],
                             sim_json['results']['cum_infections_high'])),
                     columns =['dates','cum_infections', 'cum_infections_low', 'cum_infections_high'])
+
+    df[df < 0] = 0
+    df_cum_infections[df_cum_infections < 0] = 0
+
 
     avp_fig = go.Figure([
         go.Scatter(
@@ -392,6 +448,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     #  https://stackoverflow.com/questions/55704058/plotly-how-to-set-the-range-of-the-y-axis
     avp_fig.update_layout(yaxis_range=[-0.1,max(max(df['new_infections_high'].tolist()), 8)+2],
     yaxis_title='Cases',
+    xaxis_title='Day',
     title_text='New Daily Infections', title_x=0.5, title_y=0.875,
     hovermode="x",
     xaxis = dict(dtick = 1),
@@ -399,6 +456,9 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     )
 
     
+
+    cum_infections_high = df_cum_infections['cum_infections_high'].tolist()
+    cum_infections = df_cum_infections['cum_infections'].tolist()
     loc_fig = go.Figure([
         go.Scatter(
             x=df_cum_infections['dates'].tolist(),
@@ -418,8 +478,9 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         )
     ])
     loc_fig.update_layout(
-    # yaxis_range=[-0.5,max(max(df_cum_infections['cum_infections_high'].tolist()), 8)+2],
+    yaxis_range=[max(-0.1,min(cum_infections)-1),max(max(cum_infections_high), 8)+5],
     yaxis_title='Cases',
+    xaxis_title='Day',
     title_text='Cummulative Infections', title_x=0.5, title_y=0.875,
     hovermode="x",
     xaxis = dict(dtick = 1),
