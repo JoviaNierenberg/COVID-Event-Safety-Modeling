@@ -9,6 +9,7 @@ import covasim as cv
 cv.options.set(dpi=300, show=False, close=True, verbose=0)
 import pandas as pd
 import numpy as np
+from numpy import mean
 from helper_stats import *
 
 
@@ -114,11 +115,11 @@ sens: Sensitivity of test used
 """ 
 
 
-def test_intervention(test_del, days_testing, rapid, window, pars, prevalence, sens=.984, subtarg=None):
+def test_intervention(test_del, days_testing, rapid, window, pars, incidence_avg, sens=.984, subtarg=None):
     if (rapid):
         pars['pop_infected'] -= sens * pars['pop_infected']
     else:
-        num_preinfectious = sum([((1/window) * pars['pop_size'] * prevalence * x) for x in range(1,window+1)])
+        num_preinfectious = sum([((1/window) * pars['pop_size'] * incidence_avg * x) for x in range(1,window+1)])
         
         # old preinfections
         # Newly infected are those infected after test (assume even distribution of test date from 1 to 'window' days ago)
@@ -294,6 +295,8 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     use_vaccines=False if vax_setting == "No Vaccination" else True
     mandatory_vax=True if vax_setting == "Mandatory Vaccination" else False
     mask_wearing = True if 1 in npi else False
+
+    # print(vax_setting, use_vaccines)
     # print(npi)
     # print("test_setting: ", test_setting)
     # print("vax_setting: ", vax_setting)
@@ -318,13 +321,15 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         location_total_inf = can_usa_timeseries.iloc[-1]['actuals.cases']
         location_cases_d10 = sum(can_usa_timeseries.iloc[range(-10,0,1)]['actuals.newCases'].values)
         perc_vax = can_usa_timeseries.iloc[-1]['metrics.vaccinationsCompletedRatio']
+        incidence_avg = mean(can_usa_timeseries.iloc[range(-7,0,1)]['actuals.newCases'].values)
     else:
         location_total_inf = can_state[can_state['state']==state_abv]['actuals.cases'].values[0]  
         location_cases_d10 = sum(can_state_timeseries[can_state_timeseries['state']==state_abv].iloc[range(-10,0,1)]['actuals.newCases'].values)
         perc_vax = can_state[can_state['state']==state_abv]['metrics.vaccinationsCompletedRatio'].values[0]
+        incidence_avg = mean(can_state_timeseries[can_state_timeseries['state']==state_abv].iloc[range(-7,0,1)]['actuals.newCases'].values)
         
-    print("location: {}, location abv: {}".format(location, state_abv))
-    print("location_total_inf: {}, location_cases_d10: {}, perc_vax: {}".format(location_total_inf, location_cases_d10, perc_vax))
+    # print("location: {}, location abv: {}".format(location, state_abv))
+    #   print("location_total_inf: {}, location_cases_d10: {}, perc_vax: {}".format(location_total_inf, location_cases_d10, perc_vax))
     
     # calculate location specific prevelance
     prevalence = (location_cases_d10*under_rep_factor)/location_pop # 0.014 - old number
@@ -411,7 +416,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     sim_json = msim.to_json()
 
     # ---------- plotting ----------
-    df = pd.DataFrame(list(zip(sim_json['results']['t'], 
+    df_new_infections = pd.DataFrame(list(zip(sim_json['results']['t'], 
                             sim_json['results']['new_infections'],
                             sim_json['results']['new_infections_low'],
                             sim_json['results']['new_infections_high'])),
@@ -423,39 +428,45 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
                             sim_json['results']['cum_infections_high'])),
                     columns =['dates','cum_infections', 'cum_infections_low', 'cum_infections_high'])
 
-    df[df < 0] = 0
+    df_new_infections[df_new_infections < 0] = 0
     df_cum_infections[df_cum_infections < 0] = 0
 
 
     avp_fig = go.Figure([
         go.Scatter(
-            x=df['dates'].tolist(),
-            y=df['new_infections'].tolist(),
+            x=df_new_infections['dates'].tolist(),
+            y=df_new_infections['new_infections'].tolist(),
             line=dict(color='rgb(0,100,80)'),
             mode='lines',
-            name="New Cases"
+            name="Estimated New Cases",
+            showlegend=True
         ),
         go.Scatter(
-            x=df['dates'].tolist()+df['dates'].tolist()[::-1], # x, then x reversed
-            y=df['new_infections_high'].tolist()+df['new_infections_low'].tolist()[::-1], # upper, then lower reversed
+            x=df_new_infections['dates'].tolist()+df_new_infections['dates'].tolist()[::-1], # x, then x reversed
+            y=df_new_infections['new_infections_high'].tolist()+df_new_infections['new_infections_low'].tolist()[::-1], # upper, then lower reversed
             fill='toself',
             fillcolor='rgba(0,100,80,0.2)',
             line=dict(color='rgba(255,255,255,0)'),
             hoverinfo="skip",
-            showlegend=False
+            showlegend=True,
+            name = '95% Confidence Interval'
         )
     ])
     #  https://stackoverflow.com/questions/55704058/plotly-how-to-set-the-range-of-the-y-axis
-    avp_fig.update_layout(yaxis_range=[-0.1,max(max(df['new_infections_high'].tolist()), 8)+2],
+    avp_fig.update_layout(yaxis_range=[-0.1,max(max(df_new_infections['new_infections_high'].tolist()), 8)+2],
     yaxis_title='Cases',
     xaxis_title='Day',
     title_text='New Daily Infections', title_x=0.5, title_y=0.875,
     hovermode="x",
     xaxis = dict(dtick = 1),
-    showlegend=False                     
+    showlegend=True,
+    legend=dict(yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01)
     )
 
-    
+
 
     cum_infections_high = df_cum_infections['cum_infections_high'].tolist()
     cum_infections = df_cum_infections['cum_infections'].tolist()
@@ -465,7 +476,8 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
             y=df_cum_infections['cum_infections'].tolist(),
             line=dict(color='rgb(0,100,80)'),
             mode='lines',
-            name="Total Cases"
+            name="Estimated Total Cases",
+            showlegend=True
         ),
         go.Scatter(
             x=df_cum_infections['dates'].tolist()+df_cum_infections['dates'].tolist()[::-1], # x, then x reversed
@@ -474,7 +486,9 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
             fillcolor='rgba(0,100,80,0.2)',
             line=dict(color='rgba(255,255,255,0)'),
             hoverinfo="skip",
-            showlegend=False
+            name = '95% Confidence Interval',
+            showlegend=True
+        
         )
     ])
     loc_fig.update_layout(
@@ -484,7 +498,11 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     title_text='Cummulative Infections', title_x=0.5, title_y=0.875,
     hovermode="x",
     xaxis = dict(dtick = 1),
-    showlegend=False                     
+    showlegend=True,
+    legend=dict(yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01)
     )
     # avp_fig.show()
     # loc_fig.show()
