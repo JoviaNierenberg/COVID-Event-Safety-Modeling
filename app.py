@@ -329,7 +329,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         location_total_inf = can_usa_timeseries.iloc[-1]['actuals.cases']
         location_cases_d10 = sum(can_usa_timeseries.iloc[range(-10,0,1)]['actuals.newCases'].values)
         perc_vax = can_usa_timeseries.iloc[-1]['metrics.vaccinationsCompletedRatio']
-        incidence_avg = mean(can_usa_timeseries.iloc[range(-7,0,1)]['actuals.newCases'].values)/location_pop
+        incidence_avg = mean(can_usa_timeseries.iloc[range(-7,0,1)]['actuals.newCases'].values)/location_pop # avg new cases last 7 days divided by population
     else:
         location_total_inf = can_state[can_state['state']==state_abv]['actuals.cases'].values[0]  
         location_cases_d10 = sum(can_state_timeseries[can_state_timeseries['state']==state_abv].iloc[range(-10,0,1)]['actuals.newCases'].values)
