@@ -402,7 +402,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
                                            rapid=testing_scenarios[test_type][2], 
                                            window=testing_scenarios[test_type][3], 
                                            pars=pars,
-                                           prevalence=prevalence,
+                                           incidence_avg=incidence_avg,
                                            sens=sens)
         all_interventions.append(test_int)
         
