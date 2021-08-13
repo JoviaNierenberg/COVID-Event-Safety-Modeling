@@ -318,7 +318,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     ventilation_factor = .69
     capacity_factor = .5
     start_day = '2021-07-01' # default start date
-    variant_transmissibility = 1.67 
+    variant_transmissibility = 2.4 # delta variant  
     
     # location-specific & other characteristics
     under_rep_factor = 4.3
