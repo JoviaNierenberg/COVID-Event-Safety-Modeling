@@ -143,7 +143,7 @@ Function: vaccine_intervention: Creates intervention for a vaccine-based entry s
 
 To-Do
 ---------
-Check cummulative infections for mandatory vaxing - values seem way too high?
+Check Cumulative infections for mandatory vaxing - values seem way too high?
 
 Parameters
 ----------
@@ -228,7 +228,7 @@ app.layout = dbc.Container(
             html.Div([
                 # html.H2('Hello Dash'),
                 html.Div([
-                    html.P(["This tool helps you estimate the COVID risk of holding in-person events and find effective safety measures for minimizing transmission. Generally, you can make an event safer by requiring vaccination, testing participants, gathering outside, reducing event capacity, increasing ventilation, and/or requiring masks. For example, you can simulate hosting your event in North Carolina requiring masks or in North Dakota requiring vaccines. Our methods can be found at [link] and all models were run using ", html.A("Covasim", href="http://paper.covasim.org"), "."]),
+                    html.P(["This tool helps you estimate the COVID risk of holding in-person events and find effective safety measures for minimizing transmission. Generally, you can make an event safer by requiring vaccination, testing participants, gathering outside, reducing event capacity, increasing ventilation, and/or requiring masks. For example, you can simulate hosting your event in North Carolina requiring masks or in North Dakota requiring vaccines. Our methods can be found ",  html.A("here", href="")," and all models were run using ", html.A("Covasim", href="http://paper.covasim.org"), "."]),
                     # html.P("This conversion happens behind the scenes by Dash's JavaScript front-end")
                 ])
             ])
@@ -287,6 +287,12 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
 # def run_sim(event_duration, num_people, location, event_environment=None, mask_wearing=False, test_type=None, use_vaccines=True, mandatory_vax=False):
     if n_clicks < 1: 
         avp_fig = go.Figure()
+        return avp_fig, avp_fig
+    if num_people > 10000:
+        avp_fig = go.Figure()
+        return avp_fig, avp_fig
+    if event_duration > 7:
+        avp_figure = go.Figure()
         return avp_fig, avp_fig
     # ----- basic event characteristics ----- 
     event_duration = event_duration if event_duration != None else 1 #temp fix for misfiring nclicks
@@ -455,7 +461,8 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         )
     ])
     #  https://stackoverflow.com/questions/55704058/plotly-how-to-set-the-range-of-the-y-axis
-    avp_fig.update_layout(yaxis_range=[-0.1,max(max(df_new_infections['new_infections_high'].tolist()), 8)+2],
+    avp_fig.update_layout(yaxis_range=[-0.01,max(max(df_new_infections['new_infections_high'].tolist()), 8)+2],
+    xaxis_range=[1,event_duration],
     yaxis_title='Cases',
     xaxis_title='Day',
     title_text='New Daily Infections', title_x=0.5, title_y=0.875,
@@ -494,10 +501,11 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         )
     ])
     loc_fig.update_layout(
-    yaxis_range=[max(-0.1,min(cum_infections)-1),max(max(cum_infections_high), 8)+5],
+    yaxis_range=[-0.01,max(max(cum_infections_high), 8)+5],
+    xaxis_range=[1,event_duration],
     yaxis_title='Cases',
     xaxis_title='Day',
-    title_text='Cummulative Infections', title_x=0.5, title_y=0.875,
+    title_text='Cumulative Infections', title_x=0.5, title_y=0.875,
     hovermode="x",
     xaxis = dict(dtick = 1),
     showlegend=True,
