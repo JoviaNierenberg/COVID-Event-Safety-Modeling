@@ -17,7 +17,7 @@ from helper_stats import *
 # ------------- intializing app -------------
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = "COVID-19 Event Simulator"
-
+server = app.server
 
 # ------------- app input functions and values -------------
 state_names = ["USA","Alaska", "Alabama", "Arkansas", "Arizona", "California", "Colorado", "Connecticut", "District of Columbia", "Delaware", "Florida", "Georgia", "Hawaii", "Iowa", "Idaho", "Illinois", "Indiana", "Kansas", "Kentucky", "Louisiana", "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota", "Missouri", "Mississippi", "Montana", "North Carolina", "North Dakota", "Nebraska", "New Hampshire", "New Jersey", "New Mexico", "Nevada", "New York", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Virginia", "Vermont", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
@@ -143,7 +143,7 @@ Function: vaccine_intervention: Creates intervention for a vaccine-based entry s
 
 To-Do
 ---------
-Check cummulative infections for mandatory vaxing - values seem way too high?
+Check Cumulative infections for mandatory vaxing - values seem way too high?
 
 Parameters
 ----------
@@ -155,9 +155,9 @@ efficacy_symp: Efficacy against symptoms
 
 
 def vaccine_intervention(percent_vax,efficacy_inf, efficacy_symp, pars, passport = False):
-    pars['pop_infected'] -= (1-efficacy_inf) * percent_vax * pars['pop_infected']
     if passport:
         percent_vax = 1
+    pars['pop_infected'] -= (1-efficacy_inf) * percent_vax * pars['pop_infected']
     return cv.simple_vaccine(days=0, prob=percent_vax, rel_sus=efficacy_inf, rel_symp=efficacy_symp), pars
 
 # ------------- Import state & us level data: new cases, total cases, percent vaccinated -------------
@@ -189,7 +189,7 @@ can_state_timeseries.sort_values(by='date', inplace=True)
 controls = [
     OptionMenu(id="location", label="Select U.S. State", values=state_names),
     NumberInput(id_name= "event_duration", minval=1, maxval=7, label_text="Event Duration", instructions = "Choose between 1-7 days"),
-    NumberInput(id_name="num_people", minval=1, maxval=100000, label_text="Number of Participants" ),
+    NumberInput(id_name="num_people", minval=1, maxval=100000, label_text="Number of Participants",instructions = "Choose between 1-10,000 participants*"),
     # CustomRangeSlider(
     #     id="loan-amount",
     #     label="Loan Amount($)",
@@ -205,6 +205,8 @@ controls = [
     OptionMenu(id="vax_setting", label="Vaccination Requirements", values=vax_options),
     SwitchInput(),
     dbc.Button("Run Simulation", color="primary", id="button-train", n_clicks=0),
+    html.P(" "),
+    html.P("*Contact us to run simulations for events larger than 10,000 people.")
     # dbc.Spinner(children=[avp_graph]),
     # dbc.Spinner(html.Div(id="loading-output")),
 ]
@@ -226,7 +228,7 @@ app.layout = dbc.Container(
             html.Div([
                 # html.H2('Hello Dash'),
                 html.Div([
-                    html.P("This tool helps you estimate the COVID risk of holding in-person events and find effective safety measures for minimizing transmission. You can compare multiple custom strategies on the same plot. For example, you can compare hosting your event in North Carolina requiring masks to in North Dakota requiring vaccines.")
+                    html.P(["This tool helps you estimate the COVID risk of holding in-person events and find effective safety measures for minimizing transmission. Generally, you can make an event safer by requiring vaccination, testing participants, gathering outside, reducing event capacity, increasing ventilation, and/or requiring masks. For example, you can simulate hosting your event in North Carolina requiring masks or in North Dakota requiring vaccines. Our methods can be found ",  html.A("here", href="")," and all models were run using ", html.A("Covasim", href="http://paper.covasim.org"), "."]),
                     # html.P("This conversion happens behind the scenes by Dash's JavaScript front-end")
                 ])
             ])
@@ -286,6 +288,12 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     if n_clicks < 1: 
         avp_fig = go.Figure()
         return avp_fig, avp_fig
+    if num_people > 10000:
+        avp_fig = go.Figure()
+        return avp_fig, avp_fig
+    if event_duration > 7:
+        avp_figure = go.Figure()
+        return avp_fig, avp_fig
     # ----- basic event characteristics ----- 
     event_duration = event_duration if event_duration != None else 1 #temp fix for misfiring nclicks
     num_people = num_people if num_people != None else 1
@@ -310,7 +318,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     ventilation_factor = .69
     capacity_factor = .5
     start_day = '2021-07-01' # default start date
-    variant_transmissibility = 1.67 
+    variant_transmissibility = 2.4 # delta variant  
     
     # location-specific & other characteristics
     under_rep_factor = 4.3
@@ -453,7 +461,8 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         )
     ])
     #  https://stackoverflow.com/questions/55704058/plotly-how-to-set-the-range-of-the-y-axis
-    avp_fig.update_layout(yaxis_range=[-0.1,max(max(df_new_infections['new_infections_high'].tolist()), 8)+2],
+    avp_fig.update_layout(yaxis_range=[-0.01,max(max(df_new_infections['new_infections_high'].tolist()), 8)+2],
+    xaxis_range=[1,event_duration],
     yaxis_title='Cases',
     xaxis_title='Day',
     title_text='New Daily Infections', title_x=0.5, title_y=0.875,
@@ -492,10 +501,11 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         )
     ])
     loc_fig.update_layout(
-    yaxis_range=[max(-0.1,min(cum_infections)-1),max(max(cum_infections_high), 8)+5],
+    yaxis_range=[-0.01,max(max(cum_infections_high), 8)+5],
+    xaxis_range=[1,event_duration],
     yaxis_title='Cases',
     xaxis_title='Day',
-    title_text='Cummulative Infections', title_x=0.5, title_y=0.875,
+    title_text='Cumulative Infections', title_x=0.5, title_y=0.875,
     hovermode="x",
     xaxis = dict(dtick = 1),
     showlegend=True,
