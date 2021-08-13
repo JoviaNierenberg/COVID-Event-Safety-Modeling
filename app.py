@@ -17,7 +17,7 @@ from helper_stats import *
 # ------------- intializing app -------------
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = "COVID-19 Event Simulator"
-
+server = app.server
 
 # ------------- app input functions and values -------------
 state_names = ["USA","Alaska", "Alabama", "Arkansas", "Arizona", "California", "Colorado", "Connecticut", "District of Columbia", "Delaware", "Florida", "Georgia", "Hawaii", "Iowa", "Idaho", "Illinois", "Indiana", "Kansas", "Kentucky", "Louisiana", "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota", "Missouri", "Mississippi", "Montana", "North Carolina", "North Dakota", "Nebraska", "New Hampshire", "New Jersey", "New Mexico", "Nevada", "New York", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Virginia", "Vermont", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
@@ -189,7 +189,7 @@ can_state_timeseries.sort_values(by='date', inplace=True)
 controls = [
     OptionMenu(id="location", label="Select U.S. State", values=state_names),
     NumberInput(id_name= "event_duration", minval=1, maxval=7, label_text="Event Duration", instructions = "Choose between 1-7 days"),
-    NumberInput(id_name="num_people", minval=1, maxval=100000, label_text="Number of Participants" ),
+    NumberInput(id_name="num_people", minval=1, maxval=100000, label_text="Number of Participants",instructions = "Choose between 1-10,000 participants*"),
     # CustomRangeSlider(
     #     id="loan-amount",
     #     label="Loan Amount($)",
@@ -205,6 +205,8 @@ controls = [
     OptionMenu(id="vax_setting", label="Vaccination Requirements", values=vax_options),
     SwitchInput(),
     dbc.Button("Run Simulation", color="primary", id="button-train", n_clicks=0),
+    html.P(" "),
+    html.P("*Contact us to run simulations for events larger than 10,000 people.")
     # dbc.Spinner(children=[avp_graph]),
     # dbc.Spinner(html.Div(id="loading-output")),
 ]
@@ -226,7 +228,7 @@ app.layout = dbc.Container(
             html.Div([
                 # html.H2('Hello Dash'),
                 html.Div([
-                    html.P("This tool helps you estimate the COVID risk of holding in-person events and find effective safety measures for minimizing transmission. You can compare multiple custom strategies on the same plot. For example, you can compare hosting your event in North Carolina requiring masks to in North Dakota requiring vaccines.")
+                    html.P(["This tool helps you estimate the COVID risk of holding in-person events and find effective safety measures for minimizing transmission. Generally, you can make an event safer by requiring vaccination, testing participants, gathering outside, reducing event capacity, increasing ventilation, and/or requiring masks. For example, you can simulate hosting your event in North Carolina requiring masks or in North Dakota requiring vaccines. Our methods can be found at [link] and all models were run using ", html.A("Covasim", href="http://paper.covasim.org"), "."]),
                     # html.P("This conversion happens behind the scenes by Dash's JavaScript front-end")
                 ])
             ])
