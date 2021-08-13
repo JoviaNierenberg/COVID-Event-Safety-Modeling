@@ -155,9 +155,9 @@ efficacy_symp: Efficacy against symptoms
 
 
 def vaccine_intervention(percent_vax,efficacy_inf, efficacy_symp, pars, passport = False):
-    pars['pop_infected'] -= (1-efficacy_inf) * percent_vax * pars['pop_infected']
     if passport:
         percent_vax = 1
+    pars['pop_infected'] -= (1-efficacy_inf) * percent_vax * pars['pop_infected']
     return cv.simple_vaccine(days=0, prob=percent_vax, rel_sus=efficacy_inf, rel_symp=efficacy_symp), pars
 
 # ------------- Import state & us level data: new cases, total cases, percent vaccinated -------------
