@@ -228,7 +228,7 @@ app.layout = dbc.Container(
             html.Div([
                 # html.H2('Hello Dash'),
                 html.Div([
-                    html.P(["This tool helps you estimate the COVID risk of holding in-person events and find effective safety measures for minimizing transmission. Generally, you can make an event safer by requiring vaccination, testing participants, gathering outside, reducing event capacity, increasing ventilation, and/or requiring masks. For example, you can simulate hosting your event in North Carolina requiring masks or in North Dakota requiring vaccines. Our methods can be found ",  html.A("here", href="")," and all models were run using ", html.A("Covasim", href="http://paper.covasim.org"), "."]),
+                    html.P(["This tool helps you estimate the COVID risk of holding in-person events and find effective safety measures for minimizing transmission. Generally, you can make an event safer by requiring vaccination, testing participants, gathering outside, reducing event capacity, increasing ventilation, and/or requiring masks. For example, you can simulate hosting your event in North Carolina requiring masks or in North Dakota requiring vaccines. Our methods can be found ",  html.A("here", href="")," and all models were run using ", html.A("Covasim", href="http://paper.covasim.org"), ". Population, incidence, prevalence, and contact matrices are based on state-level data."]),
                     # html.P("This conversion happens behind the scenes by Dash's JavaScript front-end")
                 ])
             ])
