@@ -115,12 +115,11 @@ sens: Sensitivity of test used
 """ 
 
 
-def test_intervention(test_del, days_testing, rapid, window, pars, incidence_avg, sens=.984, subtarg=None):
+def test_intervention(test_del, days_testing, rapid, window, pars, incidence_avg, sens, under_rep_factor, subtarg=None):
     if (rapid):
         pars['pop_infected'] -= sens * pars['pop_infected']
     else:
-        num_preinfectious = sum([((1/window) * pars['pop_size'] * incidence_avg * x) for x in range(1,window+1)])
-        
+        num_preinfectious = sum([((1/window) * pars['pop_size'] * incidence_avg * under_rep_factor * x) for x in range(1,window+1)])
         # old preinfections
         # Newly infected are those infected after test (assume even distribution of test date from 1 to 'window' days ago)
         # Assume 12 days infectious, all tests within 4.6 day period from exposed->infectious (max window 4)
@@ -130,7 +129,6 @@ def test_intervention(test_del, days_testing, rapid, window, pars, incidence_avg
         # Finally, remove population that is detected by the reported tests
         pars['pop_infected'] += num_preinfectious - sens * pars['pop_infected']
         
-    
     return cv.test_num(daily_tests=pars['pop_size']*days_testing, 
                        start_day=pars['start_day'], 
                        subtarget=subtarg,
@@ -321,7 +319,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     variant_transmissibility = 2.4 # delta variant  
     
     # location-specific & other characteristics
-    under_rep_factor = 4.3
+    under_rep_factor = 4.2
     location_pop = population_dict[location]
     
     state_abv = us_state_abbrev[location]
@@ -389,13 +387,13 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
  
     testing_scenarios = {
         # format = [test_del, days_testing, rapid, window]
-        "Entry antigen":[0,0,True,0],
-        "Daily antigen": [0,event_duration,True,0], #[0,7,True,0]
-        "PCR 2-day":[0,0,False,2],
-        "PCR 4-day":[0,0,False,4],        
+        "Entry antigen":[0,0,False,3,0.945], # add 3 days to window for antigen tests (since 3.5 is not possible)
+        "Daily antigen": [0,event_duration,False,3,0.945], #[0,7,True,0] # add 3 days to window for antigen tests (since 3.5 is not possible)
+        "PCR 2-day":[0,0,False,5,1], # add 3 days to window for PCR tests
+        "PCR 4-day":[0,0,False,7,1], # add 3 days to window for PCR tests        
     } 
     subtarg = None # Subtargetting of tests
-    sens = .984 # Sensitivity of test used
+    #sens = .984 # Sensitivity of test used - commented out since sensitivity is different for different tests
     if test_type != None:
         test_int, pars = test_intervention(test_del=testing_scenarios[test_type][0], 
                                            days_testing=testing_scenarios[test_type][1], 
@@ -403,7 +401,8 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
                                            window=testing_scenarios[test_type][3], 
                                            pars=pars,
                                            incidence_avg=incidence_avg,
-                                           sens=sens)
+                                           under_rep_factor=under_rep_factor,
+                                           sens=testing_scenarios[test_type][4])
         all_interventions.append(test_int)
         
     
