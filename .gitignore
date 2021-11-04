@@ -1,2 +1,6 @@
+venv
+*.pyc
+.DS_Store
+.env
 .ipynb_checkpoints
 # covasim_testbed.ipynb
