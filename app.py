@@ -77,21 +77,20 @@ def SwitchInput():
     )
     return switches
 
-def CustomRangeSlider(values, label, **kwargs):
-    values = sorted(values)
-    marks = {i: f"{i//1000}k" for i in values}
-
+def CustomSlider(label, marks, set_val, instructions, **kwargs):
     return dbc.FormGroup(
         [
             dbc.Label(label),
-            dcc.RangeSlider(
-                min=values[0],
-                max=values[-1],
-                step=1000,
-                value=[values[1], values[-2]],
-                marks=marks,
-                **kwargs,
+            dcc.Slider(
+                    min=0.5,
+                    max=2,
+                    step=None,
+                    marks=marks,
+                    value=set_val,
+                    **kwargs
             ),
+            dbc.FormText(instructions),
+
         ]
     )
 
@@ -196,11 +195,13 @@ controls = [
     OptionMenu(id="location", label="Select U.S. State", values=state_names),
     NumberInput(id_name= "event_duration", minval=1, maxval=7, label_text="Event Duration", instructions = "Choose between 1-7 days"),
     NumberInput(id_name="num_people", minval=10, maxval=100000, label_text="Number of Participants",instructions = "Choose between 10-10,000 participants*"),
-    # CustomRangeSlider(
-    #     id="loan-amount",
-    #     label="Loan Amount($)",
-    #     values=range(loan_min, loan_max + 1, loan_marks),
-    # ),
+    CustomSlider(
+        id="prevalence_mod",
+        label="Prevalence Modifier",
+        marks={0.5: '0.5x', 1: '1x', 1.5: '1.5x',2: '2x'},
+        set_val = 1,
+        instructions = "Choose a prevalence modifier to see the impacts of increased or decreased caseloads in your region."
+    ),
     # CustomRangeSlider(
     #     id="annual-income",
     #     label="Annual Income ($)",
@@ -283,13 +284,14 @@ app.layout = dbc.Container(
         State("location", "value"),
         State("event_duration", "value"),
         State("num_people", "value"),
+        State("prevalence_mod", "value"),
         State("event_setting", "value"),
         State("test_setting", "value"),
         State("vax_setting", "value"),
         State("npis", "value"),
     ],
 )
-def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_setting, vax_setting, npi):
+def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, event_setting, test_setting, vax_setting, npi):
 # def run_sim(event_duration, num_people, location, event_environment=None, mask_wearing=False, test_type=None, use_vaccines=True, mandatory_vax=False):
     if n_clicks < 1: 
         avp_fig = go.Figure()
@@ -309,7 +311,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
     use_vaccines=False if vax_setting == "No Vaccination" else True
     mandatory_vax=True if vax_setting == "Mandatory Vaccination" else False
     mask_wearing = True if 1 in npi else False
-
+    # print(prevalence_mod, event_setting)
     # print(vax_setting, use_vaccines)
     # print(npi)
     # print("test_setting: ", test_setting)
@@ -346,7 +348,7 @@ def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_
         incidence_avg = cest_state_timeseries[cest_state_timeseries['state']==location].iloc[range(-10,0,1)]['infections'].mean()/location_pop
         perc_vax = can_state[can_state['state']==state_abv]['metrics.vaccinationsCompletedRatio'].values[0]
         # calculate location specific prevelance
-        prevalence = (location_cases_d10)/location_pop #no need for under-rep factor for state level data as we are looking @ total infections
+        prevalence = ((location_cases_d10)/location_pop)*prevalence_mod#no need for under-rep factor for state level data as we are looking @ total infections
         # calculate location specific susceptibility proportion (0.747 - old number)
         susceptibility_proportion = 1-((location_total_inf)/location_pop) #no need for under-rep factor for state level data as we are looking @ total infections
         
