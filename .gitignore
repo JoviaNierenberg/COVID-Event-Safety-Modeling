@@ -1,3 +1,7 @@
+venv
+*.pyc
+.DS_Store
+.env
 .ipynb_checkpoints
 # covasim_testbed.ipynb
 __pycache__/helper_stats.cpython-36.pyc
