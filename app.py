@@ -337,7 +337,7 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
         location_total_inf = can_usa_timeseries.iloc[-1]['actuals.cases']
         location_cases_d10 = sum(can_usa_timeseries.iloc[range(-10,0,1)]['actuals.newCases'].values)
         perc_vax = can_usa_timeseries.iloc[-1]['metrics.vaccinationsCompletedRatio']
-        incidence_avg = mean(can_usa_timeseries.iloc[range(-7,0,1)]['actuals.newCases'].values)/location_pop # avg new cases last 7 days divided by population
+        incidence_avg = (mean(can_usa_timeseries.iloc[range(-7,0,1)]['actuals.newCases'].values)*under_rep_factor)/location_pop # avg new cases last 7 days divided by population, 11/8: accounted for under-reporting
         # calculate location specific prevelance
         prevalence = ((location_cases_d10*under_rep_factor)/location_pop)*prevalence_mod # 0.014 - old number
         # calculate location specific susceptibility proportion
