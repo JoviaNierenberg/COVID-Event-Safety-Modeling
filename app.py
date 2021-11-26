@@ -488,6 +488,11 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
     )
 
 
+    # find value for min cumulative infections on day 0
+    min_cum_infections = df_cum_infections[df_cum_infections['dates'] == 0]["cum_infections_low"].values[0]
+
+    # replace any values on the lower CI that fall below min_cum_infections
+    df_cum_infections.loc[df_cum_infections['cum_infections_low'] < min_cum_infections, "cum_infections_low"] = min_cum_infections
 
     cum_infections_high = df_cum_infections['cum_infections_high'].tolist()
     cum_infections = df_cum_infections['cum_infections'].tolist()
