@@ -469,7 +469,7 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
             line=dict(color='rgba(255,255,255,0)'),
             hoverinfo="skip",
             showlegend=True,
-            name = '95% Confidence Interval'
+            name = 'Confidence Band'
         )
     ])
     #  https://stackoverflow.com/questions/55704058/plotly-how-to-set-the-range-of-the-y-axis
@@ -507,7 +507,7 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
             fillcolor='rgba(0,100,80,0.2)',
             line=dict(color='rgba(255,255,255,0)'),
             hoverinfo="skip",
-            name = '95% Confidence Interval',
+            name = 'Confidence Band',
             showlegend=True
         
         )
