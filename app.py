@@ -21,7 +21,7 @@ server = app.server
 
 # ------------- app input functions and values -------------
 state_names = ["USA","Alaska", "Alabama", "Arkansas", "Arizona", "California", "Colorado", "Connecticut", "District of Columbia", "Delaware", "Florida", "Georgia", "Hawaii", "Iowa", "Idaho", "Illinois", "Indiana", "Kansas", "Kentucky", "Louisiana", "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota", "Missouri", "Mississippi", "Montana", "North Carolina", "North Dakota", "Nebraska", "New Hampshire", "New Jersey", "New Mexico", "Nevada", "New York", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Virginia", "Vermont", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
-event_settings = ["Indoor", "Outdoor", "Mixed"]
+event_settings = ["Indoor", "Outdoor"]
 vax_options = [ "Default (assumes regional prevalence)", "Mandatory Vaccination", "No Vaccination"]
 testing_options = ["No Testing", "Entry antigen", "Daily antigen", "PCR 2-day", "PCR 4-day"]
 
@@ -77,13 +77,13 @@ def SwitchInput():
     )
     return switches
 
-def CustomSlider(label, marks, set_val, instructions, **kwargs):
+def CustomSlider(label, marks, set_val, instructions, minval, maxval, **kwargs):
     return dbc.FormGroup(
         [
             dbc.Label(label),
             dcc.Slider(
-                    min=0.5,
-                    max=2,
+                    min=minval,
+                    max=maxval,
                     step=None,
                     marks=marks,
                     value=set_val,
@@ -200,12 +200,18 @@ controls = [
         label="Prevalence Modifier",
         marks={0.5: '0.5x', 1: '1x', 1.5: '1.5x',2: '2x'},
         set_val = 1,
-        instructions = "Choose a prevalence modifier to see the impacts of increased or decreased caseloads in your region."
+        instructions = "Choose a prevalence modifier to see the impacts of increased or decreased caseloads in your region.",
+        minval = 0.5, 
+        maxval = 2
     ),
-    # CustomRangeSlider(
-    #     id="annual-income",
-    #     label="Annual Income ($)",
-    #     values=[0, 20000, 50000, 100000, 200000],
+    # CustomSlider(
+    #     id="num_contacts",
+    #     label="Number of Daily Close Contacts",
+    #     marks={20:'<=20', 40:'40', 60:'60', 80:'80', 100:'100'},
+    #     set_val = 20,
+    #     instructions = "Choose the number of close contacts per person. ",
+    #     minval = 5, 
+    #     maxval = 100,
     # ),
     OptionMenu(id="event_setting", label="Event Setting", values=event_settings),
     OptionMenu(id="test_setting", label="Testing Options", values=testing_options),
@@ -276,7 +282,6 @@ app.layout = dbc.Container(
         # Output("loading-output", "children"),
         Output("avp_graph", "figure"),
         Output("loc_graph", "figure"),
-        # Output("coef-graph", "figure"),
         # Output("sql-query", "children"),
     # ],
     [Input("button-train", "n_clicks")],
@@ -285,6 +290,7 @@ app.layout = dbc.Container(
         State("event_duration", "value"),
         State("num_people", "value"),
         State("prevalence_mod", "value"),
+        # State("num_contacts", "value"),
         State("event_setting", "value"),
         State("test_setting", "value"),
         State("vax_setting", "value"),
@@ -320,8 +326,8 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
     # "test_type:", test_type, "use_vaccines:", use_vaccines, "mandatory_vax:", mandatory_vax)
 
     # ---------- Point estimates ---------- 
-    indoor_factor = 9.35
-    outdoor_factor = .11 
+    # indoor_factor =  9.35 - removed as indoor is now default
+    outdoor_factor = 0.055 #.11 
     mask_factor = .56
     ventilation_factor = .69
     capacity_factor = .5
@@ -378,12 +384,17 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
     all_interventions.append(variant_trans)
     
     # environment
-    if event_environment == "Indoor":
-        environment = cv.change_beta(0, indoor_factor)
-        all_interventions.append(environment)
-    elif event_environment == "Outdoor":
+    # if event_environment == "Indoor":
+    #     environment = cv.change_beta(0, indoor_factor)
+    #     all_interventions.append(environment)
+    if event_environment == "Outdoor":
         environment = cv.change_beta(0, outdoor_factor)
         all_interventions.append(environment)
+
+    # changing number of contacts
+    # if num_contacts != 20:
+    #     num_contacts = # add intervention
+    #     all_interventions.append(num_contacts)          
     
     # mask wearing
     if mask_wearing:
