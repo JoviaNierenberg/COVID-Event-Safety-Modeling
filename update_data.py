@@ -17,9 +17,9 @@ state_url = "https://api.covidactnow.org/v2/states.csv?apiKey="+api_key
 us_timeseries_url = "https://api.covidactnow.org/v2/country/US.timeseries.csv?apiKey="+api_key
 covidestim_url = "https://covidestim.s3.us-east-2.amazonaws.com/latest/state/estimates.csv"
 
-state_file = "/Users/shagun/Downloads/states.csv"
-us_timeseries_file = "/Users/shagun/Downloads/UStimeseries.csv"
-covidestim_file = "/Users/shagun/Downloads/covidestim_estimates.csv"
+state_file = "states.csv"
+us_timeseries_file = "UStimeseries.csv"
+covidestim_file = "covidestim_estimates.csv"
 
 with urllib3.PoolManager() as http:
     try:
