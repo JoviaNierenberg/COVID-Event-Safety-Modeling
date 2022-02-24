@@ -114,7 +114,7 @@ sens: Sensitivity of test used
 """ 
 
 
-def test_intervention(test_del, days_testing, rapid, window, pars, incidence_avg, sens, under_rep_factor, subtarg=None):
+def test_intervention(test_del, days_testing, rapid, window, pars, incidence_avg, sens, subtarg=None):
     if (rapid):
         pars['pop_infected'] -= sens * pars['pop_infected']
     else:
@@ -165,8 +165,8 @@ can_state = pd.read_csv("states.csv")
 
 # USA timeseries data 
 can_usa_timeseries = pd.read_csv("UStimeseries.csv")
-can_usa_timeseries.dropna(subset = ['actuals.cases'], inplace=True)
-can_usa_timeseries.dropna(subset = ['metrics.vaccinationsCompletedRatio'], inplace=True)
+# can_usa_timeseries.dropna(subset = ['actuals.cases'], inplace=True)  # no longer using this data
+# can_usa_timeseries.dropna(subset = ['metrics.vaccinationsCompletedRatio'], inplace=True)  # no longer using this data
 can_usa_timeseries['date']=pd.to_datetime(can_usa_timeseries.date)
 can_usa_timeseries.sort_values(by='date', inplace=True)
 
@@ -340,23 +340,32 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
     
     state_abv = us_state_abbrev[location]
     if state_abv == 'USA':
-        location_total_inf = can_usa_timeseries.iloc[-1]['actuals.cases']
-        location_cases_d10 = sum(can_usa_timeseries.iloc[range(-10,0,1)]['actuals.newCases'].values)
+        # old calculations based on us time series and under reporting factor
+        # location_total_inf = can_usa_timeseries.iloc[-1]['actuals.cases']
+        # location_cases_d10 = sum(can_usa_timeseries.iloc[range(-10,0,1)]['actuals.newCases'].values)
+        # incidence_avg = (mean(can_usa_timeseries.iloc[range(-7,0,1)]['actuals.newCases'].values)*under_rep_factor)/location_pop # avg new cases last 7 days divided by population, 11/8: accounted for under-reporting
+        
+        # infections total - total of sum
+        location_total_inf = cest_state_timeseries['infections'].sum()
+        #  last 10 dates
+        l10_dates = cest_state_timeseries.date.unique()[-10::1]
+        # calculate total daily infections for each of the last 10 dates
+        daily_infections_l10 = []
+        for date_val in l10_dates:
+            daily_infections_l10.append(cest_state_timeseries[cest_state_timeseries['date']==date_val]['infections'].sum())
+        location_cases_d10 = sum(daily_infections_l10)
+        incidence_avg = np.mean(daily_infections_l10[-7::])/location_pop # mean of last 7 total daily infections
         perc_vax = can_usa_timeseries.iloc[-1]['metrics.vaccinationsCompletedRatio']
-        incidence_avg = (mean(can_usa_timeseries.iloc[range(-7,0,1)]['actuals.newCases'].values)*under_rep_factor)/location_pop # avg new cases last 7 days divided by population, 11/8: accounted for under-reporting
-        # calculate location specific prevelance
-        prevalence = ((location_cases_d10*under_rep_factor)/location_pop)*prevalence_mod # 0.014 - old number
-        # calculate location specific susceptibility proportion
-        susceptibility_proportion = 1-((location_total_inf * under_rep_factor)/location_pop) #0.747 - old number
     else:
         location_total_inf = cest_state_timeseries[cest_state_timeseries['state']==location]['infections'].sum()
         location_cases_d10 = cest_state_timeseries[cest_state_timeseries['state']==location].iloc[range(-10,0,1)]['infections'].sum()
-        incidence_avg = cest_state_timeseries[cest_state_timeseries['state']==location].iloc[range(-10,0,1)]['infections'].mean()/location_pop
+        incidence_avg = cest_state_timeseries[cest_state_timeseries['state']==location].iloc[range(-7,0,1)]['infections'].mean()/location_pop
         perc_vax = can_state[can_state['state']==state_abv]['metrics.vaccinationsCompletedRatio'].values[0]
-        # calculate location specific prevelance
-        prevalence = ((location_cases_d10)/location_pop)*prevalence_mod#no need for under-rep factor for state level data as we are looking @ total infections
-        # calculate location specific susceptibility proportion (0.747 - old number)
-        susceptibility_proportion = 1-((location_total_inf)/location_pop) #no need for under-rep factor for state level data as we are looking @ total infections
+    
+    # calculate location specific prevelance
+    prevalence = ((location_cases_d10)/location_pop)*prevalence_mod
+    # calculate location specific susceptibility proportion (0.747 - old number)
+    susceptibility_proportion = 1-((location_total_inf)/location_pop) #no need for under-rep factor for state level data as we are looking @ total infections
         
     #   print("location: {}, location abv: {}".format(location, state_abv))
     #   print("location_total_inf: {}, location_cases_d10: {}, perc_vax: {}".format(location_total_inf, location_cases_d10, perc_vax))
@@ -425,7 +434,6 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
                                            window=testing_scenarios[test_type][3], 
                                            pars=pars,
                                            incidence_avg=incidence_avg,
-                                           under_rep_factor=under_rep_factor,
                                            sens=testing_scenarios[test_type][4])
         all_interventions.append(test_int)
         
