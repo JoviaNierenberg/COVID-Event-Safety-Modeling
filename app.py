@@ -379,7 +379,7 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
     pars = dict(
         pop_type = 'hybrid', # Use a more realistic population model
         pop_size = num_people,
-        pop_infected = num_people*prevalence,
+        pop_infected = num_people*prevalence if num_people*prevalence > 1 else 1,
         start_day = start_day,
         n_days = event_duration,
         location = covsim_location # Case insensitive
