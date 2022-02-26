@@ -24,20 +24,25 @@ state_names = ["USA","Alaska", "Alabama", "Arkansas", "Arizona", "California", "
 event_settings = ["Indoor", "Outdoor"]
 vax_options = [ "Default (assumes regional prevalence)", "Mandatory Vaccination", "No Vaccination"]
 testing_options = ["No Testing", "Entry antigen", "Daily antigen", "PCR 2-day", "PCR 4-day"]
-
-def OptionMenu(values, label, **kwargs):
-    # options = [{"label": s.replace("_", " ").capitalize(), "value": s} for s in values]
-    options = [{"label": s, "value": s} for s in values]
-    kwargs["value"] = kwargs.get("value", values[0])
-
+variants = ["Omicron (4.92x)", "Less transmissible (0.5x)", "Original strain (1x)", "Alpha (1.5x)", "Delta (2.4x)", "More transmissible (10x)"]
+variant_mapping = {
+    "Omicron (4.92x)":4.92, 
+    "Less transmissible (0.5x)":0.5, 
+    "Original strain (1x)":1.0, 
+    "Alpha (1.5x)":1.5, 
+    "Delta (2.4x)":2.4, 
+    "More transmissible (10x)":10
+}
+def OptionMenu(values, label, options=None, instructions=None, **kwargs):
+    if not options:
+        options = [{"label": s, "value": s} for s in values]
+    # kwargs["value"] = kwargs.get("value", values[0]) #if you want a default value
     if len(options) <= 4:
         component = dbc.RadioItems
         kwargs["inline"] = True
     else:
         component = dbc.Select
-    if label == "Select U.S. State":
-        return dbc.FormGroup([dbc.Label(label),component(placeholder="Select a U.S. State...", options=options, **kwargs)])
-    return dbc.FormGroup([dbc.Label(label), component(options=options, **kwargs)])
+    return dbc.FormGroup([dbc.Label(label),component(options=options, **kwargs), dbc.FormText(instructions)])
 
 def NumberInput(id_name, minval=1, maxval=7, label_text = None, instructions = None):
     # number_input = html.Div(
@@ -192,9 +197,18 @@ cest_state_timeseries.sort_values(by='date', inplace=True)
 
 
 controls = [
-    OptionMenu(id="location", label="Select U.S. State", values=state_names),
+    OptionMenu(id="location", label="Location", values=state_names, placeholder="Select Country or U.S. State"),
     NumberInput(id_name= "event_duration", minval=1, maxval=7, label_text="Event Duration", instructions = "Choose between 1-7 days"),
     NumberInput(id_name="num_people", minval=10, maxval=100000, label_text="Number of Participants",instructions = "Choose between 10-10,000 participants*"),
+    # CustomSlider(
+    #     id="num_contacts",
+    #     label="Number of Daily Close Contacts",
+    #     marks={0:'<=10', 20:'20', 20:'20', 40:'40', 60:'60', 80:'80', 100:'100'},
+    #     set_val = 20,
+    #     instructions = "Choose the average number of close contacts per person attending the event.",
+    #     minval = 0, 
+    #     maxval = 100,
+    # ),
     CustomSlider(
         id="prevalence_mod",
         label="Prevalence Modifier",
@@ -204,18 +218,19 @@ controls = [
         minval = 0.5, 
         maxval = 2
     ),
+    OptionMenu(id="variant_trans_value", label="Variant Transmissibility", values=variants, value=variants[0], placeholder="Select Variant", instructions="The default variant can be changed to see the impacts of increased or decreased transmissibility for your event."),
     # CustomSlider(
-    #     id="num_contacts",
-    #     label="Number of Daily Close Contacts",
-    #     marks={20:'<=20', 40:'40', 60:'60', 80:'80', 100:'100'},
-    #     set_val = 20,
-    #     instructions = "Choose the number of close contacts per person. ",
-    #     minval = 5, 
-    #     maxval = 100,
+    #     id="variant_trans_modifier",
+    #     label="Variant Transmissibility",
+    #     marks={0.5: '0.5x', 1: 'Original (1x)', 2.4: 'Delta (2.4x)',4.92: 'Omicron'},
+    #     set_val = 1,
+    #     instructions = "Choose a modifier to see the impacts of increased or decreased transmissibility for your event.",
+    #     minval = 0.5, 
+    #     maxval = 4.92
     # ),
-    OptionMenu(id="event_setting", label="Event Setting", values=event_settings),
-    OptionMenu(id="test_setting", label="Testing Options", values=testing_options),
-    OptionMenu(id="vax_setting", label="Vaccination Requirements", values=vax_options),
+    OptionMenu(id="event_setting", label="Event Setting", values=event_settings, value=event_settings[0]),
+    OptionMenu(id="test_setting", label="Testing Options", values=testing_options, placeholder="Select Testing"),
+    OptionMenu(id="vax_setting", label="Vaccination Requirements", values=vax_options, value=vax_options[0]),
     SwitchInput(),
     dbc.Button("Run Simulation", color="primary", id="button-train", n_clicks=0),
     html.P(" "),
@@ -289,15 +304,16 @@ app.layout = dbc.Container(
         State("location", "value"),
         State("event_duration", "value"),
         State("num_people", "value"),
-        State("prevalence_mod", "value"),
         # State("num_contacts", "value"),
+        State("prevalence_mod", "value"),
+        State("variant_trans_value", "value"),
         State("event_setting", "value"),
         State("test_setting", "value"),
         State("vax_setting", "value"),
         State("npis", "value"),
     ],
 )
-def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, event_setting, test_setting, vax_setting, npi):
+def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, variant_trans_value, event_setting, test_setting, vax_setting, npi):
 # def run_sim(event_duration, num_people, location, event_environment=None, mask_wearing=False, test_type=None, use_vaccines=True, mandatory_vax=False):
     if n_clicks < 1: 
         avp_fig = go.Figure()
@@ -332,8 +348,8 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, even
     ventilation_factor = .69
     capacity_factor = .5
     start_day = '2021-07-01' # default start date
-    variant_transmissibility = 2.4 # delta variant  
-    
+    variant_transmissibility = variant_mapping[variant_trans_value] #2.4 - delta variant
+
     # location-specific & other characteristics
     under_rep_factor = 4.2 #source: CDC
     location_pop = population_dict[location]
