@@ -158,11 +158,12 @@ efficacy_symp: Efficacy against symptoms
 """
 
 
-def vaccine_intervention(percent_vax,efficacy_inf, efficacy_symp, pars, passport = False):
+def vaccine_intervention(percent_vax,efficacy_inf, immune_esc, efficacy_symp, pars, passport = False):
     if passport:
         percent_vax = 1
-    pars['pop_infected'] -= (1-efficacy_inf) * percent_vax * pars['pop_infected']
-    return cv.simple_vaccine(days=0, prob=percent_vax, rel_sus=efficacy_inf, rel_symp=efficacy_symp), pars
+    efficacy_inf_updated = 1-((1-efficacy_inf) * (1-immune_esc))
+    pars['pop_infected'] -= (1-efficacy_inf_updated) * percent_vax * pars['pop_infected']
+    return cv.simple_vaccine(days=0, prob=percent_vax, rel_sus=efficacy_inf_updated, rel_symp=efficacy_symp), pars
 
 # ------------- Import state & us level data: new cases, total cases, percent vaccinated -------------
 # State daily data  
@@ -197,18 +198,41 @@ cest_state_timeseries.sort_values(by='date', inplace=True)
 
 
 controls = [
+    dbc.Alert("Basic Information", color="primary"),
+    # dbc.Alert(
+    #     [
+    #         html.H5("Basic Information", className="alert-heading"),
+    #         # html.P(
+    #         #     "This is a success alert with loads of extra text in it. So much "
+    #         #     "that you can see how spacing within an alert works with this "
+    #         #     "kind of content."
+    #         # ),
+    #         html.Hr(),
+    #         html.P(
+    #             "Fill out the event details to estimate the COVID risk.",
+    #             className="mb-0",
+    #         ),
+    #     ],
+    #     color="primary",
+    # ),
     OptionMenu(id="location", label="Location", values=state_names, placeholder="Select Country or U.S. State"),
     NumberInput(id_name= "event_duration", minval=1, maxval=7, label_text="Event Duration", instructions = "Choose between 1-7 days"),
     NumberInput(id_name="num_people", minval=10, maxval=100000, label_text="Number of Participants",instructions = "Choose between 10-10,000 participants*"),
-    # CustomSlider(
-    #     id="num_contacts",
-    #     label="Number of Daily Close Contacts",
-    #     marks={0:'<=10', 20:'20', 20:'20', 40:'40', 60:'60', 80:'80', 100:'100'},
-    #     set_val = 20,
-    #     instructions = "Choose the average number of close contacts per person attending the event.",
-    #     minval = 0, 
-    #     maxval = 100,
-    # ),
+    OptionMenu(id="event_setting", label="Event Setting", values=event_settings, value=event_settings[0]),
+    OptionMenu(id="test_setting", label="Testing Options", values=testing_options, placeholder="Select Testing"),
+    OptionMenu(id="vax_setting", label="Vaccination Requirements", values=vax_options, value=vax_options[0]),
+    SwitchInput(),
+    html.P(" "),
+    dbc.Alert("Additional Modifiers", color="primary"),
+    CustomSlider(
+        id="num_contacts",
+        label="Number of Daily Close Contacts",
+        marks={20:'20', 20:'20', 40:'40', 60:'60', 80:'80', 100:'100'},
+        set_val = 20,
+        instructions = "Choose the average number of close contacts per person attending the event.",
+        minval = 20, 
+        maxval = 100,
+    ),
     CustomSlider(
         id="prevalence_mod",
         label="Prevalence Modifier",
@@ -219,19 +243,16 @@ controls = [
         maxval = 2
     ),
     OptionMenu(id="variant_trans_value", label="Variant Transmissibility", values=variants, value=variants[0], placeholder="Select Variant", instructions="The default variant can be changed to see the impacts of increased or decreased transmissibility for your event."),
-    # CustomSlider(
-    #     id="variant_trans_modifier",
-    #     label="Variant Transmissibility",
-    #     marks={0.5: '0.5x', 1: 'Original (1x)', 2.4: 'Delta (2.4x)',4.92: 'Omicron'},
-    #     set_val = 1,
-    #     instructions = "Choose a modifier to see the impacts of increased or decreased transmissibility for your event.",
-    #     minval = 0.5, 
-    #     maxval = 4.92
-    # ),
-    OptionMenu(id="event_setting", label="Event Setting", values=event_settings, value=event_settings[0]),
-    OptionMenu(id="test_setting", label="Testing Options", values=testing_options, placeholder="Select Testing"),
-    OptionMenu(id="vax_setting", label="Vaccination Requirements", values=vax_options, value=vax_options[0]),
-    SwitchInput(),
+    CustomSlider(
+        id="immune_escape",
+        label="Immune Escape (%)",
+        marks={0: '0', 10: '10', 20: '20', 30: '30', 40: '40', 50: '50', 60: '60', 70: '70', 80: '80', 90: '90', 100: '100'},
+        set_val = 0,
+        instructions = "Select immune escape %.",
+        minval = 0, 
+        maxval = 100,
+        # tooltip={"placement": "bottom", "always_visible": True}
+    ),
     dbc.Button("Run Simulation", color="primary", id="button-train", n_clicks=0),
     html.P(" "),
     html.P("*Contact us to run simulations for events larger than 10,000 people.")
@@ -304,17 +325,19 @@ app.layout = dbc.Container(
         State("location", "value"),
         State("event_duration", "value"),
         State("num_people", "value"),
-        # State("num_contacts", "value"),
-        State("prevalence_mod", "value"),
-        State("variant_trans_value", "value"),
         State("event_setting", "value"),
         State("test_setting", "value"),
         State("vax_setting", "value"),
         State("npis", "value"),
+        State("num_contacts", "value"),
+        State("prevalence_mod", "value"),
+        State("variant_trans_value", "value"),
+        State("immune_escape", "value"),
     ],
 )
-def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, variant_trans_value, event_setting, test_setting, vax_setting, npi):
-# def run_sim(event_duration, num_people, location, event_environment=None, mask_wearing=False, test_type=None, use_vaccines=True, mandatory_vax=False):
+
+def run_sim(n_clicks, location, event_duration, num_people, event_setting, test_setting, vax_setting, npi, num_contacts, prevalence_mod, variant_trans_value, immune_escape):
+# def run_sim(event_duration, num_people, location, event_environment=None, mask_wearing=False, test_type=None, use_vaccines=True, mandatory_vax=False):    
     if n_clicks < 1: 
         avp_fig = go.Figure()
         return avp_fig, avp_fig
@@ -351,7 +374,7 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, vari
     variant_transmissibility = variant_mapping[variant_trans_value] #2.4 - delta variant
 
     # location-specific & other characteristics
-    under_rep_factor = 4.2 #source: CDC
+    #under_rep_factor = 4.2 #source: CDC feb 2022 - no longer being used
     location_pop = population_dict[location]
     
     state_abv = us_state_abbrev[location]
@@ -380,13 +403,17 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, vari
     
     # calculate location specific prevelance
     prevalence = ((location_cases_d10)/location_pop)*prevalence_mod
+
+    # update immune escape value
+    immune_escape = immune_escape/100
+
     # calculate location specific susceptibility proportion (0.747 - old number)
     susceptibility_proportion = 1-((location_total_inf)/location_pop) #no need for under-rep factor for state level data as we are looking @ total infections
-        
+    # update susceptibility_proportion with immune escape
+    susceptibility_proportion = 1-((1-susceptibility_proportion) * (1-immune_escape))
     #   print("location: {}, location abv: {}".format(location, state_abv))
     #   print("location_total_inf: {}, location_cases_d10: {}, perc_vax: {}".format(location_total_inf, location_cases_d10, perc_vax))
     
-
     # vaccination levels:
     v_efficacy_inf = .1 # Vax efficacy against infection (e.g .2 == 80% efficacy)
     v_efficacy_symp = .06 # Vax efficacy against symptoms
@@ -417,9 +444,9 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, vari
         all_interventions.append(environment)
 
     # changing number of contacts
-    # if num_contacts != 20:
-    #     num_contacts = # add intervention
-    #     all_interventions.append(num_contacts)          
+    if num_contacts != 20: #if not default
+        change_num_contacts = cv.change_beta(0, num_contacts/20) # change by a factor relative to default
+        all_interventions.append(change_num_contacts)          
     
     # mask wearing
     if mask_wearing:
@@ -457,7 +484,7 @@ def run_sim(n_clicks, location, event_duration, num_people, prevalence_mod, vari
     # vaccinations - assumes state level vax numbers (default), unless otherwise specified (either mandatory vax, or no vax)
     passport = mandatory_vax # True if 100% of attendees must be vaccinated
     if use_vaccines:
-        vc, pars = vaccine_intervention(perc_vax, v_efficacy_inf, v_efficacy_symp, pars, passport)
+        vc, pars = vaccine_intervention(perc_vax, v_efficacy_inf, immune_escape, v_efficacy_symp, pars, passport)
         all_interventions.append(vc)
 
     
